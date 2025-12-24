@@ -1,6 +1,6 @@
 # 🚗 Drift Monitoring System for Insurance Pricing Models
 
-> **By Bilel Gafsi – Data Scientist & Actuarial Engineer**  
+> **By Bilel SAYOUD – Data Scientist & Actuarial Engineer**  
 > *An end-to-end ML pipeline for insurance pricing with robust drift detection capabilities*
 
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue?logo=python)](https://python.org)
@@ -134,6 +134,7 @@ A binary XGBoost classifier was trained to distinguish between training and prod
   "AUC-ROC": 0.9980
 }
 ````
+
 
 
 
