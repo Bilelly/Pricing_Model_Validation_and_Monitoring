@@ -111,6 +111,111 @@ with tab1:
 
 
 # ───────────────────────────────────────
+# TAB 2 : DÉTECTION DE DRIFT
+# ───────────────────────────────────────
+with tab2:
+    st.subheader("📉 Détection de Drift ")
+
+    try:
+        ref_df = load_reference_data()      # X_train.csv
+        prod_df = load_production_data()    # X_drift.csv
+    except Exception as e:
+        st.error(f"Erreur de chargement des données : {e}")
+        st.stop()
+
+    st.info(f"🔹 Données de référence : {ref_df.shape[0]:,} lignes\n"
+            f"🔹 Données de production : {prod_df.shape[0]:,} lignes")
+
+    if st.button("🔍 Calculer le drift (PSI)", type="primary"):
+        with st.spinner("Analyse du drift en cours..."):
+
+            # Aligner les colonnes
+            common_cols = ref_df.columns.intersection(prod_df.columns)
+            if len(common_cols) == 0:
+                st.error("❌ Aucune colonne commune entre les deux jeux de données.")
+                st.stop()
+
+            ref_aligned = ref_df[common_cols]
+            prod_aligned = prod_df[common_cols]
+
+            # Appel de ta fonction
+            try:
+                psi_summary = calculate_psi(ref_aligned, prod_aligned)
+            except Exception as e:
+                st.error(f"Erreur lors du calcul du PSI : {e}")
+                st.exception(e)
+                st.stop()
+
+            # Trier par PSI décroissant
+            psi_summary = psi_summary.sort_values("PSI", ascending=False).reset_index(drop=True)
+
+            # Ajouter un emoji pour la lisibilité
+            def add_emoji(row):
+                if row["Drift"] == "Significant drift":
+                    return "🔴 " + row["Variable"]
+                elif row["Drift"] == "Moderate drift":
+                    return "🟠 " + row["Variable"]
+                else:
+                    return "🟢 " + row["Variable"]
+
+            psi_summary["Variable (état)"] = psi_summary.apply(add_emoji, axis=1)
+
+            # Afficher le tableau principal
+            st.markdown("### 📊 Résultats du PSI")
+            st.dataframe(
+                psi_summary[["Variable (état)", "PSI", "Drift"]],
+                column_config={
+                    "PSI": st.column_config.NumberColumn(format="%.4f"),
+                },
+                hide_index=True,
+                use_container_width=True
+            )
+
+            # --- Métriques globales ---
+            n_total = len(psi_summary)
+            n_stable = len(psi_summary[psi_summary["Drift"] == "No drift"])
+            n_moderate = len(psi_summary[psi_summary["Drift"] == "Moderate drift"])
+            n_significant = len(psi_summary[psi_summary["Drift"] == "Significant drift"])
+
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Variables", n_total)
+            col2.metric("🟢 Stables", n_stable)
+            col3.metric("🟠 Modérées", n_moderate)
+            col4.metric("🔴 Significatives", n_significant)
+
+            # --- Graphique natif : PSI par variable ---
+            st.markdown("### 📈 PSI par variable (trié)")
+            chart_data = psi_summary.set_index("Variable (état)")["PSI"]
+            st.bar_chart(chart_data, color="#FF6B6B", height=400)
+
+            # --- Alertes ---
+            if n_significant > 0:
+                st.error(f"⚠️ **{n_significant} variable(s)** avec **drift significatif** (PSI ≥ 0.25) — nécessite une investigation.")
+            elif n_moderate > 0:
+                st.warning(f"ℹ️ **{n_moderate} variable(s)** avec drift modéré (0.1 ≤ PSI < 0.25) — à surveiller.")
+            else:
+                st.success("✅ Aucun drift détecté. Les données sont stables.")
+
+            # --- Optionnel : upload personnalisé ---
+            st.markdown("### 📤 Tester avec vos propres données")
+            uploaded_custom = st.file_uploader("Uploader un CSV de production (même format que X_train)", type="csv")
+            if uploaded_custom:
+                try:
+                    custom_df = pd.read_csv(uploaded_custom)
+                    missing_cols = set(common_cols) - set(custom_df.columns)
+                    if missing_cols:
+                        st.warning(f"Colonnes manquantes : {missing_cols}")
+                    else:
+                        psi_custom = calculate_psi(ref_aligned, custom_df[common_cols])
+                        st.markdown("#### Résultats sur vos données")
+                        st.dataframe(psi_custom, use_container_width=True)
+                except Exception as e:
+                    st.error(f"Erreur : {e}")
+
+    else:
+        st.write("Cliquez sur **Calculer le drift (PSI)** pour lancer l'analyse.")
+
+# ───────────────────────────────────────
 # FOOTER
 # ───────────────────────────────────────
 st.divider()
